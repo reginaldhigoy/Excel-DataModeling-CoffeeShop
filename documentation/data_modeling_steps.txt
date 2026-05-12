@@ -1,0 +1,152 @@
+# Coffee Shop Sales – Data Modeling Steps
+
+## Overview
+
+This document walks through the step-by-step process of transforming a **flat Excel file** into a **relational star schema** using Power Query and Power Pivot.
+
+**Original file:** One Excel sheet containing transactions, products, and store data all together.
+
+**Goal:** Create a scalable data model with fact and dimension tables that can handle 1M+ rows.
+
+---
+
+## Step 1: Understand the Raw Data
+
+The original file had the following structure:
+
+| Column | Description |
+|--------|-------------|
+| transaction_id | Unique transaction identifier |
+| transaction_date | Date of transaction |
+| transaction_time | Time of transaction |
+| transaction_qty | Quantity sold |
+| store_id | Store identifier |
+| store_location | Store location (Astoria, Hell's Kitchen, Lower Manhattan) |
+| product_id | Product identifier |
+| unit_price | Price per unit |
+| product_category | Category (Coffee, Tea, Bakery, etc.) |
+| product_type | Type (Drip coffee, Brewed tea, Scone, etc.) |
+| product_detail | Specific product name |
+
+**Problem:** Product and store information repeats for every transaction. This creates:
+- Duplicate data (inefficient storage)
+- Risk of inconsistencies (same product spelled differently)
+- Difficulty maintaining data integrity
+
+---
+
+## Step 2: Load Data into Power Query
+
+**Action:** Open Excel → Data tab → Get Data → From File → From Workbook
+
+**Why:** Power Query allows cleaning and transformation before loading to the data model.
+
+---
+
+## Step 3: Create Dimension Tables
+
+Dimension tables contain **unique, non-repeating** values. They serve as the "lookup" tables.
+
+### Dim_Product
+
+**Purpose:** One row per unique product
+
+**Steps:**
+1. Copy product-related columns (product_id, product_category, product_type, product_detail)
+2. Remove duplicate rows based on `product_id`
+3. Verify each product appears only once
+
+**Result:**
+
+| product_id | product_category | product_type | product_detail |
+|------------|------------------|--------------|----------------|
+| 1 | Flavours | Regular syrup | Hazelnut syrup |
+| 2 | Flavours | Regular syrup | Caramel syrup |
+| 7 | Coffee | Barista Espresso | Ouro Brasileiro |
+
+---
+
+### Dim_Store
+
+**Purpose:** One row per unique store
+
+**Steps:**
+1. Copy store-related columns (store_id, store_location)
+2. Remove duplicate rows based on `store_id`
+3. Verify each store appears only once
+
+**Result:**
+
+| store_id | store_location |
+|----------|----------------|
+| 1 | Astoria |
+| 2 | Hell's Kitchen |
+| 3 | Lower Manhattan |
+
+---
+
+### Dim_Date (Optional)
+
+**Purpose:** Date attributes for time-based analysis
+
+**Steps:**
+1. Extract unique dates from `transaction_date`
+2. Add columns: Year, Month, Month Name, Weekday, Day
+
+**Result:**
+
+| Date | Year | Month | Month Name | Weekday |
+|------|------|-------|------------|---------|
+| 2024-01-01 | 2024 | 1 | January | Monday |
+| 2024-01-02 | 2024 | 1 | January | Tuesday |
+
+---
+
+## Step 4: Create Fact Table
+
+**Purpose:** Transaction-level data that connects to dimension tables
+
+**Steps:**
+1. Keep only transaction-related columns:
+   - transaction_id
+   - transaction_date
+   - transaction_time
+   - transaction_qty
+   - store_id (foreign key to Dim_Store)
+   - product_id (foreign key to Dim_Product)
+
+2. **Do NOT remove duplicates** – transactions should remain unique
+
+**Result:**
+
+| transaction_id | transaction_date | transaction_time | transaction_qty | store_id | product_id |
+|----------------|------------------|------------------|-----------------|----------|------------|
+| 1001 | 2024-01-01 | 08:15:00 | 2 | 1 | 7 |
+| 1002 | 2024-01-01 | 09:30:00 | 1 | 2 | 22 |
+
+---
+
+## Step 5: Load to Data Model (Not Sheets)
+
+**Action:** In Power Query, select "Load to" → Choose "Only Create Connection" → Check "Add to Data Model"
+
+**Why:** 
+- Excel sheets have a 1,048,576 row limit
+- Data model can handle millions of rows
+- Power Pivot (data model) enables relationship creation
+
+---
+
+## Step 6: Create Relationships
+
+**Action:** Power Pivot → Manage → Diagram View → Drag and drop to connect tables
+
+**Relationships Created:**
+
+| Table | Foreign Key | Related Table | Primary Key |
+|-------|-------------|---------------|-------------|
+| fact_sales | product_id → | dim_product | product_id |
+| fact_sales | store_id → | dim_store | store_id |
+| fact_sales | transaction_date → | dim_date | Date |
+
+**Visual:**
